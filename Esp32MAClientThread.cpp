@@ -1,14 +1,10 @@
-
-// Reference: https://techtutorialsx.com/2017/09/13/esp32-arduino-communication-between-tasks-using-freertos-queues/
-
-#include <Arduino.h>
 #include "Esp32MAClientThread.hpp"
-#include "secrets/secrets.h"
-
 
 // Constructor
 
 Esp32MAClientLog::Esp32MAClientLog(){
+
+    // creation of freertos FIFO queue (Thread safe)
 
     _xBufferCom = xQueueCreate( MAXBUFFER, sizeof(varStamp_t));
 
@@ -20,6 +16,7 @@ Esp32MAClientLog::Esp32MAClientLog(){
 
 
 // Registering variables to be sent to Machine Advisor IOT Hub
+
 // minPeriod = period in milliseconds
 // thershold (optinal) = if filled, the variable will be sent if the change>threshold and minPeriod has ocurred
 // maxPeriod (optional) = if filled, maximum period without sending the variable
@@ -29,13 +26,13 @@ int Esp32MAClientLog::registerVar(String name, int *ptrValue, int minPeriod, int
     int varId=-1;
     bool allOk=false;
 
-    if (_numRegisteredVars<MAXNUMVARS) {
+    if (_varList.num < MAXNUMVARS) {
 
-        allOk = _registerVarAtPosition(_numRegisteredVars, name, ptrValue, minPeriod, threshold, maxPeriod);
+        allOk = _registerVarAtPosition(_varList.num, name, ptrValue, minPeriod, threshold, maxPeriod);
 
         if (allOk) {
-            varId = _numRegisteredVars;
-            _numRegisteredVars ++;
+            varId = _varList.num;
+            _varList.num ++;
         }
 
     } else {
@@ -48,24 +45,23 @@ int Esp32MAClientLog::registerVar(String name, int *ptrValue, int minPeriod, int
 }
 
 
-// Registering method in a vector position.
+// Registering a variable with a varID code
 
 bool Esp32MAClientLog::_registerVarAtPosition(int varID, String name, int *ptrValue, int minPeriod, int threshold, int maxPeriod){
 
     // TODO: Verify that values are correct
 
     // Only can be updated a position already written, or the next one.
-    if (varID <= _numRegisteredVars) {
-        _varName[varID] = name;
-        _ptrVarValue[varID] = ptrValue;
-        _varPeriod[varID] = minPeriod;
-        _varThreshold[varID] = threshold;
-        _varMaxPeriod[varID] = maxPeriod;
+    if (varID <= _varList.num) {
+        _varList.var[varID].name = name;
+        _varList.var[varID].ptrValue = ptrValue;
+        _varList.var[varID].minPeriod = minPeriod;
+        _varList.var[varID].threshold = threshold;
+        _varList.var[varID].maxPeriod = maxPeriod;
 
-        _varLastUpdateTime[varID] = 0;
-        _varLastValue[varID] = 0;
+        _varList.var[varID]._lastUpdateTime = 0;
+        _varList.var[varID]._lastValue = 0;
 
-        _minPeriodAllVars = min(_minPeriodAllVars, minPeriod);
         return(true);
 
     } else {
@@ -93,7 +89,7 @@ int Esp32MAClientLog::_findVarIndex (int *ptrValue){
 
     for (int i = 0; i < MAXNUMVARS; i++) {
         
-        if (_ptrVarValue[i] == ptrValue){
+        if (_varList.var[i].ptrValue == ptrValue){
             return(i);
         }
     }
@@ -102,8 +98,8 @@ int Esp32MAClientLog::_findVarIndex (int *ptrValue){
 }
 
 
-// Update: To be called as fast as posible
 // Check if a variable should be updated. If so, push it to the communicaitons buffer
+// To be called as fast as posible
 
 void Esp32MAClientLog::update(unsigned long ts){
 
@@ -112,7 +108,7 @@ void Esp32MAClientLog::update(unsigned long ts){
     
     int numUpd=0;
 
-    for (int varId=0; varId<_numRegisteredVars; varId++){
+    for (int varId=0; varId<_varList.num; varId++){
 
         if(_shouldVarBeUpdated(varId)) _pushVarToBuffer(varId, ts);
         numUpd++;
@@ -123,16 +119,15 @@ void Esp32MAClientLog::update(unsigned long ts){
 }
 
 
-
 /// Calculate if the variable should be updated or not
 
 bool Esp32MAClientLog::_shouldVarBeUpdated(int varId){
 
-    unsigned long elapsedTimeVar = _nowMillis - _varLastUpdateTime[varId];
+    unsigned long elapsedTimeVar = _nowMillis - _varList.var[varId]._lastUpdateTime;
 
-    bool varToBeUpdated =  ( (elapsedTimeVar >= _varPeriod[varId]) && 
-                        (abs(*(_ptrVarValue[varId]) - _varLastValue[varId]) > _varThreshold[varId]) ) ||
-                        (elapsedTimeVar > _varMaxPeriod[varId] && _varMaxPeriod[varId] != -1) ||
+    bool varToBeUpdated =  ( (elapsedTimeVar >= _varList.var[varId].minPeriod) && 
+                        (abs(*(_varList.var[varId].ptrValue) - _varList.var[varId]._lastValue) > _varList.var[varId].threshold) ) ||
+                        (elapsedTimeVar > _varList.var[varId].maxPeriod && _varList.var[varId].maxPeriod != -1) ||
                         _coldStart;
                         
     return(varToBeUpdated);
@@ -144,43 +139,43 @@ bool Esp32MAClientLog::_shouldVarBeUpdated(int varId){
 bool Esp32MAClientLog::_pushVarToBuffer(int varId, unsigned long ts) {
 
     varStamp_t varStamp;
-    bool allOK=false;
+    bool isValueBuffered=false;
 
-    strcpy(varStamp.varName, _varName[varId].substring(0,MAXCHARVARNAME).c_str());
+    strcpy(varStamp.varName, _varList.var[varId].name.substring(0,MAXCHARVARNAME).c_str());
     varStamp.varId = varId;
-    varStamp.value = *(_ptrVarValue[varId]);
+    varStamp.value = *(_varList.var[varId].ptrValue);
     varStamp.ts = ts;
 
 
-    // Send structure to buffer, and do NOT block if the buffer is full to avoid stopping the application.
+    // Send structure to buffer, and do NOT block (0) if the buffer is full to avoid stopping the application.
 
-    allOK = (xQueueSend(_xBufferCom, &varStamp, 0) == pdPASS);
+    isValueBuffered = (xQueueSend(_xBufferCom, &varStamp, 0) == pdPASS);
+
+    // Either if can be queued or not, move to the next schedule
+
+    _varList.var[varId]._lastUpdateTime = _nowMillis;
+    _varList.var[varId]._lastValue = varStamp.value;
     
-    if (allOK) {
+    if (!isValueBuffered) {
 
-        _varLastUpdateTime[varId] = _nowMillis;
-        _varLastValue[varId] = varStamp.value;
+        _varsNotBufferedAndLost++;
+        _setError("Problem pushing a var to the buffer. Buffer=" + getBufferInfo());
+        Serial.println("Value Lost: " + String(varStamp.varName) + " " + String(varStamp.value) + " " + String(varStamp.ts));
+        Serial.println("Messages Lost: " + String(_varsNotBufferedAndLost));
 
-    } else {
-
-        if ((millis()-_lastBufferErrorMillis) >= MILLISSENDPERIOD) {
-            _setError("Problem pushing a var to the buffer. Buffer=" + getBufferInfo());
-            _lastBufferErrorMillis = millis(); // Do not log an error immediatelly
-        }
-        
     } 
 
-    return(allOK);
+    return(isValueBuffered);
 }
 
-// Return buffer pointer
+// Return buffer pointer.
 
-QueueHandle_t* Esp32MAClientLog::buffer(){
+QueueHandle_t* Esp32MAClientLog::_getPtrBuffer(){
     return(&_xBufferCom);
 }
 
 
-// Return buffer Information
+// Return buffer log information
 
 String Esp32MAClientLog::getBufferInfo(){
 
@@ -218,7 +213,7 @@ int Esp32MAClientLog::getNumErrors(){
 
 // Get the current time stamp pointer
 
-unsigned long* Esp32MAClientLog::getTsPtr() {
+unsigned long* Esp32MAClientLog::_getTsPtr() {
 
     return(&_lastTs);
 
@@ -231,7 +226,17 @@ unsigned long* Esp32MAClientLog::getTsPtr() {
 ///////////////////////////////////////////////////////////////////////////
 
 
-// Constructor (Dettailed)
+// Easy constructor (Based directly on Esp32MAClientLog object)
+
+Esp32MAClientSend::Esp32MAClientSend(String assetName, Esp32MAClientLog &logClient) {
+
+    _assetName = assetName;
+    _ptrxBufferCom = logClient._getPtrBuffer();
+    _ptrTs = logClient._getTsPtr();
+}
+
+
+// Constructor (Detailed)
 
 Esp32MAClientSend::Esp32MAClientSend(String assetName, QueueHandle_t* ptrxBufferCom, unsigned long* ptrTs) {
 
@@ -240,14 +245,6 @@ Esp32MAClientSend::Esp32MAClientSend(String assetName, QueueHandle_t* ptrxBuffer
     _ptrTs = ptrTs;
 }
 
-// Easy constructor (Based directly on Esp32MAClientLog object)
-
-Esp32MAClientSend::Esp32MAClientSend(String assetName, Esp32MAClientLog &logClient) {
-
-    _assetName = assetName;
-    _ptrxBufferCom = logClient.buffer();
-    _ptrTs = logClient.getTsPtr();
-}
 
 // Connexion Strigs methods
 
@@ -289,8 +286,7 @@ void Esp32MAClientSend::setConnexionString(String rawBroker, String rawClientId,
     _buildConnexionString();
 }
 
-// Set cookie method
-// The cookie can be obtained from a registerd Web browser.
+// Set cookie. The cookie can be obtained from a registered Web browser.
 
 void Esp32MAClientSend::setMASessionCookie(String sessionCookie) {
 
@@ -330,8 +326,8 @@ bool Esp32MAClientSend::connect() {
 }
 
 
-// Update: To be called as fast as posible
 // Update method upload the bufered messages to MA
+// To be called as fast as posible
 
 void Esp32MAClientSend::update(bool isComOK){
 
@@ -343,26 +339,33 @@ void Esp32MAClientSend::update(bool isComOK){
 
 }
 
-// Send the buffered vars at constant pace to avoid comunication problems
+// Send the buffered to Machine Advisor
 
 bool Esp32MAClientSend::_sendBufferedMessages(){
 
-    bool allOK=true;
+    // vTaskDelay is not used to be able to use the library in a mono-task system
+
+    bool bufferWithValue;
+    bool sendOK=true;
     
     varStamp_t varStamp;
 
-    // Peek the value of the buffer (but do not remove it). BLOCK the task if buffer is empty
-    if (xQueuePeek(*_ptrxBufferCom, &varStamp, portMAX_DELAY) != pdPASS) {
-        _setError("Problem getting a value from the buffer");
-        allOK=false;
-    }
+    // Peek the value of the buffer (but do not remove it). 
+    // Do NOT block the task to be able to use the library in a mono-task system
 
+    bufferWithValue = (xQueuePeek(*_ptrxBufferCom, &varStamp, 0) == pdPASS);
 
-    if (allOK) {
+    // TODO: Check what is the minimum posible period to update messages to Machine Advisor
+
+    if (bufferWithValue && (_nowMillis - _lastBufferMillis) >= MILLISSENDPERIOD) {
 
         String mqttMessage = _createMQTTMessageVar(varStamp.varName, varStamp.value, varStamp.ts);
 
-        if (sendMQTTMessage(mqttMessage, _isComOK)) {
+        // TODO: Manage to send multiples updates in the same message.
+
+        sendOK = sendMQTTMessage(mqttMessage, _isComOK);
+
+        if (sendOK) {
 
             // Remove the message from buffer, as the message is sent correctly to MA
             xQueueReceive(*_ptrxBufferCom, &varStamp, 0);
@@ -375,19 +378,16 @@ bool Esp32MAClientSend::_sendBufferedMessages(){
         } else {
             _setError("Problem sending the message to Machine Advisor. Check connection status. Buffer=" + getBufferInfo());
             _messageErrorCount = (_messageErrorCount +1) % INTMAX_MAX;
-            allOK = false;
         }
+
+        _lastBufferMillis = _nowMillis;
     }
 
-    _lastBufferMillis = _nowMillis;
+    // TODO: Check if it works correct always.
+    // To avoid Watch dog problems, if the task is running in core 0, delay it 1ms
+    if (xPortGetCoreID() == 0) vTaskDelay(1);
 
-    // The task is delayed to avoid communication problems with IOT Hub.
-    // TODO: Check what is the minimum period.
-
-    vTaskDelay(portTICK_PERIOD_MS * MILLISSENDPERIOD);
-    
-    return(allOK);
-
+    return(sendOK);
 }
 
 
@@ -423,39 +423,36 @@ bool Esp32MAClientSend::sendMQTTMessage(String name, int value, unsigned long ts
 
 }
 
-
 // Send a RAW MQTTMessage to Machine Advisor.
 
 bool Esp32MAClientSend::sendMQTTMessage(String mqttMessage, bool isComOK) {
 
-    bool allOK = false;
-    bool sendMessage = false;
+    bool isComFullOK = false;
+    bool isMessageSent = false;
 
-    // Wait for a while when the connection is recovered
+    // If the connection is recovered, do not resend immediatelly
 
     if (isComOK && !_lastIsWifiOK) _recoveringComMillis = millis();
     else if (isComOK && (millis()-_recoveringComMillis)>= COMRECOVERYDELAY) {
-        sendMessage=true;
+        isComFullOK=true;
     }
-    else sendMessage=false;
+    else isComFullOK=false;
 
+    // If we can send the message
 
-    if (sendMessage) {
+    if (isComFullOK) {
 
         EVENT_INSTANCE* message = Esp32MQTTClient_Event_Generate(mqttMessage.c_str(), MESSAGE);
 
-        if(Esp32MQTTClient_SendEventInstance(message)) {
+        isMessageSent = Esp32MQTTClient_SendEventInstance(message);
 
-            Serial.println("Message sent =" + mqttMessage);
-            allOK = true;
+        if (isMessageSent) Serial.println("Message sent =" + mqttMessage);
 
-        } else allOK = false;
-
-    } else allOK = false;
+    } 
 
     _lastIsWifiOK = isComOK;
 
-    return(allOK);
+    return(isMessageSent);
 }
 
 

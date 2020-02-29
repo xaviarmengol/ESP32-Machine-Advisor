@@ -1,8 +1,12 @@
-// Simple example where is demostrated:
+// Complete example where is demostrated:
 
 // How to declare the objects Esp32MAClientLog and Esp32MAClientSend
-// How to configure: -log a variable and -connect to Machine advisors
-// How to upate the two objects in the loop
+// How to create a specific task for Esp32MAClientSent and execute it in a separated core (0)
+// How to connect to Machine Advisor
+// How to register diferent variables with diferent options
+// How to dowload data from Machine Advisor
+// How to update the Log task in the main loop
+// How to update de Sending task in a specific task
 
 
 #include <Arduino.h>
@@ -31,6 +35,10 @@ NTPClient timeClient(ntpUDP);
 Esp32MAClientLog machineLog; // Log variables to a buffer
 Esp32MAClientSend machineSend("ESP32", machineLog); // Send the buffer to Machine Advisor
 
+// Tasks definition
+
+TaskHandle_t handTskUploading;
+void tskUploading (void *pvParameters);
 
 // Aplication variables example
 
@@ -53,11 +61,44 @@ void setup() {
 
     machineSend.setConnexionString(MACHINEBROKERURL, MACHINECLIENTID, MACHINEPASSWORD);
     while (!machineSend.connect()) Serial.print("C");
+    
+    // ClientSend will be declared in a independent task pinned to the second core (0). 
+    // (Loop is always pinned to core (1))
 
+    xTaskCreateUniversal(tskUploading, "TaskUpload", 10000, NULL, 1, &handTskUploading, 0);
+    delay(500); 
+
+    // Example 1:
     // Register a variable with a sampling time of 20s
 
     machineLog.registerVar("humidity", &humid, 20000);
+
+    // Example 2:
+    // Register a variable with a minimum sampling time of 5s,
+    // but sample it only if the variable change is more than 5 units
+
+    machineLog.registerVar("temperature", &temp, 5000, 5);
+
+    // Example 3:
+    // Register a variable with a minimum sample time of 5s
+    // but sample it only if the variable change is more than 2 units
+    // If the variable hasn't changed enough for 30s, sample it anyway
+
+    machineLog.registerVar("voltage", &volt, 5000, 20, 30000);
+
+    // Example 4:
+    // Print some machine data stored in MA
+
+    machineSend.setMASessionCookie(COOKIEKEY);
     
+    // Display the last 5 minutes of variable humitity. Use makeTS method to set a concrete date/time
+
+    unsigned long tsIni = timeClient.getEpochTime()-60*5;
+    unsigned long tsEnd = timeClient.getEpochTime();
+
+    machineSend.downloadCsv("ESP32", "humidity", tsIni, tsEnd);
+    machineSend.printCsv();
+
     // Aplication inits
 
     randomSeed(analogRead(0));
@@ -66,6 +107,7 @@ void setup() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Loop is pinned to core 1 by default
 
 void loop (){
 
@@ -81,7 +123,20 @@ void loop (){
     }
 
     machineLog.update(timeClient.getEpochTime());
-    machineSend.update(isWifiOK());
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void tskUploading (void *pvParameters){
+
+    Serial.println("Task: Uploading to MA running on core " + String(xPortGetCoreID()));
+
+    while (true) {
+        machineSend.update(isWifiOK());
+    }
+
 }
 
 
