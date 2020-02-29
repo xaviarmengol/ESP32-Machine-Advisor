@@ -1,4 +1,4 @@
-// Simple example where is demostrated:
+// Simple example where is demonstrated:
 
 // How to declare the objects Esp32MAClientLog and Esp32MAClientSend
 // How to configure: -log a variable and -connect to Machine advisors

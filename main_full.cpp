@@ -1,4 +1,4 @@
-// Complete example where is demostrated:
+// Complete example where is demonstrated:
 
 // How to declare the objects Esp32MAClientLog and Esp32MAClientSend
 // How to create a specific task for Esp32MAClientSent and execute it in a separated core (0)

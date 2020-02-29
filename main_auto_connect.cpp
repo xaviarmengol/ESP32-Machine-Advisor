@@ -54,7 +54,7 @@ void setup() {
     Serial.begin(115200);
     Serial.println("Initializing...");
 
-    Config.title = "Menú WiFi - Rellotge";
+    Config.title = "WiFi Menu";
     Config.apid = AUTOCONNECTSSID;
     Config.psk  = AUTOCONNECTPASS;
     Config.autoReconnect = true; 
