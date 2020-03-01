@@ -1,7 +1,7 @@
 # ESP32-MA-Multitask
 Arduino ESP32 Client for Machine Advisor, the Digital Service for machines by Schneider Electric
 
-The library provides a simple integration to Machine Advisor from Arduino environment using a ESP32 SoC. It has a powerful and very simple logging system, with a configurable comunications buffer and with the option to execute it in a separated task and in a dedicated core.
+The library provides a simple integration to Machine Advisor from Arduino environment using a ESP32 SoC. It has a powerful and simple logging system, with a configurable comunications buffer and with the option to execute it in a separated task and in a dedicated core.
 
 - Uses Microsoft Esp32MQTTClient library (ESP32 Azure IoT). (https://github.com/VSChina/ESP32_AzureIoT_Arduino)
 - Buffering, multitasking and multi core is managed by FreeRtos thas is already included in Arduino libraries for ESP32.
@@ -28,6 +28,37 @@ It provides features like:
 You can register for a free trial account here:
 
 - https://machine-advisor.schneider-electric.com/welcome
+
+### Logging configuration
+
+The variables that should be logged, are registered in the library once, and all the rest is done automaticall.
+
+Example: machineLog.registerVar("voltage", &volt, 5000, 20, 30000);
+
+- "voltage": Name of the variable that will appear in Machine Advisor
+- &volt: Memory address of global variable volt.
+- 5000: Minimum sampling period in ms. If 0, or very small, should be combined with a threshold.
+- 20: Optional threshold. 
+
+### Conection configuration
+
+To configure the library, some conection information should be copied from Machine Advisor.
+
+In the example, three strings should be provided:
+
+- machineSend.setConnexionString(**MACHINEBROKERURL**, **MACHINECLIENTID**, **MACHINEPASSWORD**);
+
+![Conection image](Conection.png)
+
+### TODO List
+
+- [ ] Add logging system to SD to make the off-line buffer much bigger
+- [ ] Add deep-sleep/wake-up to reduce battery consumtion
+- [ ] Create a Platformio Library
+- [ ] Be able to download the data in JSON
+- [ ] Create a GraphQL connector
+- [ ] Add basic filtering to the signals (Use external library)
+
 
 ## Author
 Xavi Armengol
