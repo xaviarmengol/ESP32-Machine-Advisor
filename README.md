@@ -1,5 +1,7 @@
 # ESP32-MA-Multitask
-ESP32 Client for Machine Advisor. Multitask and multicore option.
+ESP32 Client for Schneider Electric Machine Advisor
+
+It provides a simple integration to Machine Advisor from Arduino environment using a ESP32 SoC. It has a powerful and very simple logging system, with a configurable comunications buffer and with the option to execute it in a separated task and in a dedicated core.
 
 - Uses Microsoft Esp32MQTTClient library (ESP32 Azure IoT). (https://github.com/VSChina/ESP32_AzureIoT_Arduino)
 - Buffering, multitasking and multi core is managed by FreeRtos thas is already included in Arduino libraries for ESP32.
@@ -8,7 +10,8 @@ In the examples, the time is got with a NTP client, but other sources, like Real
 
 - NTPClient (https://github.com/arduino-libraries/NTPClient)
 
-## EcoStruxure™ Machine Advisor - Digital Services for machines by Schneider Electric
+## EcoStruxure™ Machine Advisor
+Digital Services for machines by Schneider Electric
 
 EcoStruxure Machine Advisor is the new digital cloud-based services platform. It enables machine builders to provide new services to machine operators for each installed machine in any production site worldwide.
 
