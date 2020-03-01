@@ -31,14 +31,15 @@ You can register for a free trial account here:
 
 ### Logging configuration
 
-The variables that should be logged, are registered in the library once, and all the rest is done automaticall.
+The variables to be logged are registered in the setup, and all the rest is done automatically calling the update method. The variables should be always INT.
 
 Example: machineLog.registerVar("voltage", &volt, 5000, 20, 30000);
 
 - "voltage": Name of the variable that will appear in Machine Advisor
 - &volt: Memory address of global variable volt.
-- 5000: Minimum sampling period in ms. If 0, or very small, should be combined with a threshold.
-- 20: Optional threshold. 
+- 5000: Minimum sampling period in ms, in the example 5s. If set to 0, or very small, should be combined with a threshold.
+- 20: (Optional) Threshold. The variable only will be logged if the change is bigger than the threshold.
+- 30000: (Optional) Maximum sampling period in ms. If the variable has not been sampled in the last 30s, it is sampled unconditionally.
 
 ### Conection configuration
 
@@ -54,6 +55,7 @@ In the example, three strings should be provided:
 
 - [ ] Add logging system to SD to make the off-line buffer much bigger
 - [ ] Add deep-sleep/wake-up to reduce battery consumtion
+- [ ] Document the class methods using std documentation system
 - [ ] Create a Platformio Library
 - [ ] Be able to download the data in JSON
 - [ ] Create a GraphQL connector
