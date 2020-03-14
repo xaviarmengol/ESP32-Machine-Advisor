@@ -28,7 +28,7 @@ NTPClient timeClient(ntpUDP);
 
 // Machine Advisor
 
-Esp32MAClientLog machineLog(); // Log variables to a buffer
+Esp32MAClientLog machineLog; // Log variables to a buffer
 Esp32MAClientSend machineSend("ESP32", machineLog); // Send the buffer to Machine Advisor
 
 
@@ -38,10 +38,6 @@ int temp=20;
 int humid=10;
 int volt=5;
 unsigned long lastUpdate=0;
-
-// TEST SD
-
-SDBuffer sdBuffer;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
