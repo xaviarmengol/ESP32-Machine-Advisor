@@ -2,15 +2,31 @@
 
 // Constructor
 
-Esp32MAClientLog::Esp32MAClientLog(){
+Esp32MAClientLog::Esp32MAClientLog(bool enableSDLog){
+
+    _enableSDLog = enableSDLog;
 
     // creation of freertos FIFO queue (Thread safe)
 
     _xBufferCom = xQueueCreate( MAXBUFFER, sizeof(varStamp_t));
 
     if(_xBufferCom == NULL){
-    _setError("Problem creating buffer to interact between tasks. Check memory allocation.");
-  }
+        _setError("Problem creating buffer to interact between tasks. Check memory allocation.");
+    }
+
+    // Creation SD Buffer
+
+    if (_enableSDLog) {
+
+        if (!_sdBufferCom.init()) {
+            _setError("Problem mounting the SD. Check SD Card.");
+        }
+        
+        if (!_sdBufferCom.setFileName(FILENAMESD)) {
+            _setError("Problem intializing SD file for buffer. Check SD card.");
+        }
+
+    }
 
 }
 
@@ -26,6 +42,8 @@ int Esp32MAClientLog::registerVar(String name, int *ptrValue, int minPeriod, int
     int varId=-1;
     bool allOk=false;
 
+    //if (_enableSDLog) _sdBufferCom.init();
+
     if (_varList.num < MAXNUMVARS) {
 
         allOk = _registerVarAtPosition(_varList.num, name, ptrValue, minPeriod, threshold, maxPeriod);
@@ -38,7 +56,7 @@ int Esp32MAClientLog::registerVar(String name, int *ptrValue, int minPeriod, int
     } else {
 
         varId = -1;
-        _setError("No more space for new variables. Check the constructor");
+        _setError("No more space for new variables. Increase the pre-allocated memory.");
     }
 
     return (varId);
@@ -65,7 +83,7 @@ bool Esp32MAClientLog::_registerVarAtPosition(int varID, String name, int *ptrVa
         return(true);
 
     } else {
-        _setError("No more space for new variables. Check the constructor");
+        _setError("Only can be updated a variable already registered. Register it first.");
         return(false);
     }  
 }
@@ -99,6 +117,7 @@ int Esp32MAClientLog::_findVarIndex (int *ptrValue){
 
 
 // Check if a variable should be updated. If so, push it to the communicaitons buffer
+// Alse save the last two variables, and update the SD buffer.
 // To be called as fast as posible
 
 void Esp32MAClientLog::update(unsigned long ts){
@@ -106,12 +125,13 @@ void Esp32MAClientLog::update(unsigned long ts){
     _lastTs = ts;
     _nowMillis = millis();
     
-    int numUpd=0;
 
     for (int varId=0; varId<_varList.num; varId++){
 
+        // Try to move data from SD to memory buffer
+        _updateSDBuffer();
+
         if(_shouldVarBeUpdated(varId)) _pushVarToBuffer(varId, ts);
-        numUpd++;
 
     }
 
@@ -119,17 +139,47 @@ void Esp32MAClientLog::update(unsigned long ts){
 }
 
 
-/// Calculate if the variable should be updated or not
+// Update SD Buffer: Move data to normal buffer if it is posible
+
+void Esp32MAClientLog::_updateSDBuffer(){
+    
+    if (!_sdBufferCom.empty() && _enableSDLog) {
+
+        int spacesAvailableBuffer = uxQueueSpacesAvailable(_xBufferCom);
+        int sizeSDBuffer = _sdBufferCom.bufferSize();
+
+        int maxMovements = min(spacesAvailableBuffer, sizeSDBuffer);
+
+        for (int i=0; i<maxMovements; i++){
+            varStamp_t varStamp;
+            if(_sdBufferCom.pop(&varStamp)) {
+                xQueueSendToBack(_xBufferCom, &varStamp, 0);
+            } else {
+                _setError("Problem moving data from SD buffer to memory buffer. Check SD.");
+            }
+        }
+    }
+
+}
+
+
+// Calculate if the variable should be updated or not
 
 bool Esp32MAClientLog::_shouldVarBeUpdated(int varId){
 
+    bool updatedDueToThreshold;
+    bool updatedDueToMinPeriod;
+    bool updatedDueToMaxPeriod;
+    
     unsigned long elapsedTimeVar = _nowMillis - _varList.var[varId]._lastUpdateTime;
 
-    bool varToBeUpdated =  ( (elapsedTimeVar >= _varList.var[varId].minPeriod) && 
-                        (abs(*(_varList.var[varId].ptrValue) - _varList.var[varId]._lastValue) > _varList.var[varId].threshold) ) ||
-                        (elapsedTimeVar > _varList.var[varId].maxPeriod && _varList.var[varId].maxPeriod != -1) ||
-                        _coldStart;
-                        
+    updatedDueToThreshold = (abs(*(_varList.var[varId].ptrValue) - _varList.var[varId]._lastValue) > _varList.var[varId].threshold);
+    updatedDueToMinPeriod = (elapsedTimeVar >= _varList.var[varId].minPeriod);
+    updatedDueToMaxPeriod = (elapsedTimeVar > _varList.var[varId].maxPeriod && _varList.var[varId].maxPeriod != -1);
+
+    bool varToBeUpdated =  ( updatedDueToMinPeriod && updatedDueToThreshold) || updatedDueToMaxPeriod || _coldStart;
+
+        
     return(varToBeUpdated);
 }
 
@@ -139,17 +189,14 @@ bool Esp32MAClientLog::_shouldVarBeUpdated(int varId){
 bool Esp32MAClientLog::_pushVarToBuffer(int varId, unsigned long ts) {
 
     varStamp_t varStamp;
+
     bool isValueBuffered=false;
 
-    strcpy(varStamp.varName, _varList.var[varId].name.substring(0,MAXCHARVARNAME).c_str());
-    varStamp.varId = varId;
-    varStamp.value = *(_varList.var[varId].ptrValue);
-    varStamp.ts = ts;
+    _fillVarFromIdTs(&varStamp, varId, ts);
 
+    // Send structure to buffer
 
-    // Send structure to buffer, and do NOT block (0) if the buffer is full to avoid stopping the application.
-
-    isValueBuffered = (xQueueSend(_xBufferCom, &varStamp, 0) == pdPASS);
+    isValueBuffered = _pushVarToBufferHardware(&varStamp);
 
     // Either if can be queued or not, move to the next schedule
 
@@ -167,6 +214,58 @@ bool Esp32MAClientLog::_pushVarToBuffer(int varId, unsigned long ts) {
 
     return(isValueBuffered);
 }
+
+
+
+
+bool Esp32MAClientLog::_pushVarToBufferHardware(varStamp_t* ptrVarStamp) {
+
+    bool allOKLogSD=false;
+    bool allOKBuffer=false;
+    bool allOKNewFileSD=false;
+    bool logToSD;
+
+    logToSD = !_sdBufferCom.empty() && _enableSDLog;
+
+    // If logging to SD, continue logging to SD until SD Buffer is empty
+    if (logToSD) {
+
+        allOKLogSD = _sdBufferCom.push(ptrVarStamp);
+        if (!allOKLogSD) _setError("Problem pushing a value to a SD Buffer. Check SD.");
+    } 
+
+    // In case of NOT logging to SD, or error logging to SD (ie, SD extracted), try to log to Buffer
+    if (!logToSD || !allOKLogSD) {
+        
+        allOKBuffer = (xQueueSendToBack(_xBufferCom, ptrVarStamp, 0) == pdPASS);
+
+        // In case of buffer error (overload) and SD enabled, create a new file and log to SD.
+
+        if (!allOKBuffer && _enableSDLog) {
+
+            _sdBufferCom.createFile(FILENAMESD);
+            allOKNewFileSD = _sdBufferCom.push(ptrVarStamp);
+            if (!allOKNewFileSD) _setError ("Problem pushing value to a new SD file. Check SD.");
+        }
+
+    }
+
+    // If something worked, return true.
+    return (allOKLogSD || allOKBuffer || allOKNewFileSD);
+}
+
+
+
+void Esp32MAClientLog::_fillVarFromIdTs(varStamp_t *ptrVar, int varId, unsigned long ts) {
+
+    strcpy(ptrVar->varName, _varList.var[varId].name.substring(0,MAXCHARVARNAME).c_str());
+    ptrVar->varId = varId;
+    ptrVar->value = *(_varList.var[varId].ptrValue);
+    ptrVar->ts = ts;
+
+}
+
+
 
 // Return buffer pointer.
 
@@ -350,34 +449,38 @@ bool Esp32MAClientSend::_sendBufferedMessages(){
     
     varStamp_t varStamp;
 
-    // Peek the value of the buffer (but do not remove it). 
-    // Do NOT block the task to be able to use the library in a mono-task system
-
-    bufferWithValue = (xQueuePeek(*_ptrxBufferCom, &varStamp, 0) == pdPASS);
-
     // TODO: Check what is the minimum posible period to update messages to Machine Advisor
 
-    if (bufferWithValue && (_nowMillis - _lastBufferMillis) >= MILLISSENDPERIOD) {
+    if ((_nowMillis - _lastBufferMillis) >= MILLISSENDPERIOD) {
 
-        String mqttMessage = _createMQTTMessageVar(varStamp.varName, varStamp.value, varStamp.ts);
+        // Peek the value of the buffer (but do not remove it). 
+        // Do NOT block the task to be able to use the library in a mono-task system
 
-        // TODO: Manage to send multiples updates in the same message.
+        bufferWithValue = (xQueuePeek(*_ptrxBufferCom, &varStamp, 0) == pdPASS);            
 
-        sendOK = sendMQTTMessage(mqttMessage, _isComOK);
+        if (bufferWithValue) {
 
-        if (sendOK) {
+            String mqttMessage = _createMQTTMessageVar(varStamp.varName, varStamp.value, varStamp.ts);
 
-            // Remove the message from buffer, as the message is sent correctly to MA
-            xQueueReceive(*_ptrxBufferCom, &varStamp, 0);
-            _messageOKCount = (_messageOKCount + 1) % INTMAX_MAX;
+            // TODO: Manage to send multiples updates in the same message.
 
-            if (uxQueueMessagesWaiting(*_ptrxBufferCom) !=0) {
-                Serial.println("Last message was buffered=" + getBufferInfo());
+            sendOK = sendMQTTMessage(mqttMessage, _isComOK);
+
+            if (sendOK) {
+
+                // If send is OK, remove the message from the buffer
+                xQueueReceive(*_ptrxBufferCom, &varStamp, 0);
+
+                _messageOKCount = (_messageOKCount + 1) % INTMAX_MAX;
+
+                if (bufferWithValue && uxQueueMessagesWaiting(*_ptrxBufferCom) !=0) {
+                    Serial.println("Last message was buffered=" + getBufferInfo());
+                }
+
+            } else {
+                _setError("Problem sending the message to Machine Advisor. Check connection status. Buffer=" + getBufferInfo());
+                _messageErrorCount = (_messageErrorCount +1) % INTMAX_MAX;
             }
-
-        } else {
-            _setError("Problem sending the message to Machine Advisor. Check connection status. Buffer=" + getBufferInfo());
-            _messageErrorCount = (_messageErrorCount +1) % INTMAX_MAX;
         }
 
         _lastBufferMillis = _nowMillis;
@@ -433,10 +536,15 @@ bool Esp32MAClientSend::sendMQTTMessage(String mqttMessage, bool isComOK) {
     // If the connection is recovered, do not resend immediatelly
 
     if (isComOK && !_lastIsWifiOK) _recoveringComMillis = millis();
+
     else if (isComOK && (millis()-_recoveringComMillis)>= COMRECOVERYDELAY) {
         isComFullOK=true;
     }
     else isComFullOK=false;
+
+    // Reset when some delay happened until re-conection
+
+    if (isComFullOK && !_lastIsComFullOK) Esp32MQTTClient_Reset();
 
     // If we can send the message
 
@@ -446,11 +554,13 @@ bool Esp32MAClientSend::sendMQTTMessage(String mqttMessage, bool isComOK) {
 
         isMessageSent = Esp32MQTTClient_SendEventInstance(message);
 
+
         if (isMessageSent) Serial.println("Message sent =" + mqttMessage);
 
     } 
 
     _lastIsWifiOK = isComOK;
+    _lastIsComFullOK = isComFullOK;
 
     return(isMessageSent);
 }
@@ -614,6 +724,170 @@ String Esp32MAClientSend::getBufferInfo(){
     String status = "[" + String((int)buffMsgWaiting) + "/" + String(msgTotal) + "]";
 
     return(status);
+
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+SDBuffer::SDBuffer() {}
+
+bool SDBuffer::init(){
+
+    if (!_SDinit) {
+
+        if(!SD.begin(SD_GPIO)) Serial.println("Card Mount Failed");
+
+        else {
+            uint8_t cardType = SD.cardType();
+            if (cardType == CARD_NONE) Serial.println("No SD card attached");    
+            else _SDinit = true;
+        }
+    }
+
+    return(_SDinit);
+}
+
+
+bool SDBuffer::setFileName(String fileName) {
+
+    _fileName = fileName;
+
+    return(createFile(_fileName));
+      
+}
+
+
+bool SDBuffer::fileExist() {
+
+    return(SD.exists(_fileName));
+
+}
+
+bool SDBuffer::createFile(String fileName) {
+
+    bool allOK=false;
+
+    String dataMessage = "VarName,Value,TimeStamp\n";
+    Serial.print("Save data: ");
+    Serial.println(dataMessage);
+
+    allOK = _writeAppendFile(SD, fileName.c_str(), dataMessage.c_str(), FILE_WRITE);
+
+    if (allOK) {
+        _bufferSize = 0;
+        _currentPointer = dataMessage.length();
+    }
+
+    return (allOK); 
+}
+
+
+int SDBuffer::bufferSize() {
+    return (_bufferSize);
+}
+
+
+uint64_t SDBuffer::_size() {
+    return (SD.usedBytes());
+}
+
+bool SDBuffer::pop(varStamp_t* ptrVarStamp, bool onlyPeek){
+
+    bool allOK=false;
+
+    if (_bufferSize > 0) {
+
+        File file = SD.open(_fileName, FILE_READ);
+
+        if(!file) {
+
+            Serial.println("Failed to open file for writing");
+            allOK = false;
+
+        } else {
+
+            file.seek(_currentPointer);
+
+            String lineStr = file.readStringUntil('\n');
+
+            Serial.println("Message POP: " + lineStr);
+
+            if (!onlyPeek)  {
+                _currentPointer = file.position();
+                _bufferSize--;
+            }
+
+            int coma1 = lineStr.indexOf(",");
+            int coma2 = lineStr.indexOf(",", coma1+1);
+            int size = lineStr.length();
+
+            strcpy(ptrVarStamp->varName, lineStr.substring(0,coma1).substring(0,MAXCHARVARNAME).c_str());
+            ptrVarStamp->value = lineStr.substring(coma1+1,coma2).toInt();
+            ptrVarStamp->ts = strtoul(lineStr.substring(coma2+1,size).c_str(), NULL, 0);
+
+            file.close();
+
+            allOK = true;
+        }
+    } 
+
+    return (allOK);
+
+}
+
+bool SDBuffer::peek(varStamp_t* ptrVarStamp) {
+    return(pop(ptrVarStamp, true));
+}
+
+bool SDBuffer::push(varStamp_t* ptrVarStamp){
+
+    bool allOK=false;
+
+    String lineStr = String(ptrVarStamp->varName) + ',' + String(ptrVarStamp->value) + ',' + String(ptrVarStamp->ts) + '\n';
+
+    Serial.println("Message PUSH: " + lineStr);
+    
+    allOK = _writeAppendFile(SD, _fileName.c_str(), lineStr.c_str(), FILE_APPEND);
+
+
+    if (allOK) _bufferSize ++; // Increase buffer counter if no error appending the file
+
+    return(allOK);
+}
+
+bool SDBuffer::empty(){
+
+    return(_bufferSize == 0);
+
+}
+
+
+
+
+// Append data to the SD card (DON'T MODIFY THIS FUNCTION)
+bool SDBuffer::_writeAppendFile(fs::FS &fs, const char * path, const char * message, const char* option) {
+
+    bool allOK=false;
+
+    // TODO: Change it to dettect if SD has been extracted
+    if(fs.exists(path)) {
+
+        File file = fs.open(path, option);
+
+        if (!file) allOK=false;
+        else if (!file.print(message)) { 
+            Serial.println("Failed to open or appending");
+        } else allOK=true;
+
+        file.close();
+
+    } 
+    
+    return(allOK);
 
 }
 

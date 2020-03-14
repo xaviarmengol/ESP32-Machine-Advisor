@@ -8,15 +8,28 @@
 //#include <ArduinoJson.h> // Needed to manage JSON
 //TODO: convert API responses to JSON
 
+// Libraries for SD card
+#include "FS.h"
+#include "SD.h"
+#include <SPI.h>
+#define ESP32MALOG_SD true
+
 #include "Esp32MQTTClient.h"
 
+// Library defines
+
 #define MAXNUMVARS 32 // Max num of variables to log
-#define MAXBUFFER 64 // Max size of the buffer
+#define MAXBUFFER 64 // Max size of the ram buffer
 #define MILLISSENDPERIOD 1000 // Minimum period between messages to Machine Advisor
-#define COMRECOVERYDELAY 0 // Timeout after recovering Wifi/communications
+#define COMRECOVERYDELAY 1000 // Timeout after recovering Wifi/communications
 #define MAXCHARVARNAME 15 // Maximum chars of the var name
 
 #define ENDPOINTAPI "https://api.machine-advisor.schneider-electric.com/download/{{clientidnum}}/%5B%22{{device}}%3A{{varname}}%22%5D/{{tsini}}/{{tsend}}"
+
+// SD Defines
+
+#define FILENAMESD "/sdbuffer.csv"
+#define SD_GPIO 5
 
 // Type: List of registered variables
 
@@ -29,6 +42,7 @@ typedef struct varRegister_t {
 
     int _lastValue; // last value sent
     unsigned long _lastUpdateTime; // millis when las value was sent
+
 } varRegister_t;
 
 typedef struct varRegisterList_t {
@@ -47,6 +61,58 @@ typedef struct varStamp_t {
 } varStamp_t;
 
 
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+// TODO: Build a class to manage SD Buffer.
+// It is a FIFO buffer written in a file. 
+// Pop is done positioning a pointer with seek, and reading 
+// Push is done appending in the file.
+// When de file gets too big, the older part is removed to make space.
+
+
+class SDBuffer {
+
+    public:
+
+        SDBuffer();
+        bool setFileName(String fileName);
+        bool fileExist();
+        bool createFile(String fileName);
+        int bufferSize();
+
+        bool empty();
+
+        bool peek(varStamp_t* varStamp); // Use file.seek()
+        bool pop(varStamp_t* varStamp, bool onlyPeek=false); // Use file.seek()
+        bool push(varStamp_t* varStamp); // Use file.append() if there is space in disk. If not delete X first values and retry.
+        void deleteFile(); // Delete file if seekPointer is in the end (no more data to pop);
+        bool init();
+
+    private:
+
+        bool _SDinit=false;
+        String _fileName;
+
+        int _bufferSize=0; // Real buffer size (in objects)
+
+        int _totalFileSize=0; // Total size of the file.
+        size_t _currentPointer=0; // Position where to start reading new data
+
+        bool _isFileCreated;
+
+        //bool _deleteOldestValuesFromFile (int numValues);
+
+        bool _writeAppendFile(fs::FS &fs, const char * path, const char * message, const char * option);
+
+        uint64_t _size();
+
+};
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,7 +124,7 @@ class Esp32MAClientLog {
 
         // Constructor
 
-        Esp32MAClientLog(); 
+        Esp32MAClientLog (bool enableSDLog=false);
 
         // Register variables
 
@@ -83,6 +149,10 @@ class Esp32MAClientLog {
 
     private:
 
+        // Constructor
+
+        bool _enableSDLog;
+
         unsigned long _nowMillis;
         bool _coldStart=true;
 
@@ -95,6 +165,8 @@ class Esp32MAClientLog {
         bool _registerVarAtPosition(int pos, String name, int *ptrValue, int minPeriod, int threshold=0, int maxPeriod=-1);
         int _findVarIndex(int *ptrVar);
         bool _shouldVarBeUpdated(int varId);
+
+        unsigned long _lastMinPeriodsMillis=0;
 
         // Error management
 
@@ -109,10 +181,19 @@ class Esp32MAClientLog {
 
         QueueHandle_t _xBufferCom; // Intertask communication buffer. Initialitzacion in the constructor
         bool _pushVarToBuffer(int varId, unsigned long ts);
+        bool _pushVarToBufferHardware(varStamp_t* ptrVarStamp);
+        void _fillVarFromIdTs(varStamp_t *ptrVar, int varId, unsigned long ts);
+
 
         int _varsNotBufferedAndLost = 0;
 
         unsigned long _lastBufferErrorMillis=0;
+
+        // SD Buffer management
+
+        SDBuffer _sdBufferCom;
+
+        void _updateSDBuffer();
  
 };
 
@@ -218,6 +299,7 @@ class Esp32MAClientSend {
         bool _isComOK;
 
         bool _lastIsWifiOK; // To manage the re-sending delay
+        bool _lastIsComFullOK; 
         unsigned long _recoveringComMillis=0;
 
         // API management
@@ -233,8 +315,15 @@ class Esp32MAClientSend {
 
         unsigned long* _ptrTs;
 
+             
+
 
 };
+
+
+
+
+
 
 
 #endif

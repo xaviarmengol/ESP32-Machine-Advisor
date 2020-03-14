@@ -1,6 +1,7 @@
 // Complete example where is demonstrated:
 
 // How to declare the objects Esp32MAClientLog and Esp32MAClientSend
+// How to use the option of a SD card, to extend the buffer up to the SD capacity
 // How to create a specific task for Esp32MAClientSent and execute it in a separated core (0)
 // How to connect to Machine Advisor
 // How to register diferent variables with diferent options
@@ -32,7 +33,7 @@ NTPClient timeClient(ntpUDP);
 
 // Machine Advisor
 
-Esp32MAClientLog machineLog; // Log variables to a buffer
+Esp32MAClientLog machineLog(ESP32MALOG_SD); // Log variables to a buffer
 Esp32MAClientSend machineSend("ESP32", machineLog); // Send the buffer to Machine Advisor
 
 // Tasks definition

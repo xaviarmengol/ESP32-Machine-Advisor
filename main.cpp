@@ -28,16 +28,20 @@ NTPClient timeClient(ntpUDP);
 
 // Machine Advisor
 
-Esp32MAClientLog machineLog; // Log variables to a buffer
+Esp32MAClientLog machineLog(); // Log variables to a buffer
 Esp32MAClientSend machineSend("ESP32", machineLog); // Send the buffer to Machine Advisor
 
 
 // Aplication variables example
 
 int temp=20;
-int humid=1000;
+int humid=10;
 int volt=5;
 unsigned long lastUpdate=0;
+
+// TEST SD
+
+SDBuffer sdBuffer;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +50,7 @@ void setup() {
 
     Serial.begin(115200);
     Serial.println("Initializing...");
+
     InitWifi();
     iniNTP();
 
@@ -54,9 +59,9 @@ void setup() {
     machineSend.setConnexionString(MACHINEBROKERURL, MACHINECLIENTID, MACHINEPASSWORD);
     while (!machineSend.connect()) Serial.print("C");
 
-    // Register a variable with a sampling time of 20s
+    // Register a variable with a sampling time of 10s
 
-    machineLog.registerVar("humidity", &humid, 20000);
+    machineLog.registerVar("humidity", &humid, 10000);
     
     // Aplication inits
 
