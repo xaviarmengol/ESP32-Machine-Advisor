@@ -8,7 +8,7 @@
 // How to connect to Machine Advisor
 // How to dowload data from Machine Advisor
 // How to update the Log task in the main loop
-// How to update de Sending task in a specific task
+// How to update de Sending task, and all wifi conection, in a specific task
 
 
 #include <Arduino.h>
@@ -105,7 +105,11 @@ void loop (){
         lastUpdate = millis();
     }
 
-    machineLog.update(timeClient.getEpochTime());
+    // Time Stamp: Use NTP if ready. If not, use seconds from startup
+
+    unsigned long ts = timeClient.update() ? timeClient.getEpochTime() : (millis() / 1000);
+
+    machineLog.update(ts);
 }
 
 

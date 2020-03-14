@@ -42,8 +42,6 @@ int Esp32MAClientLog::registerVar(String name, int *ptrValue, int minPeriod, int
     int varId=-1;
     bool allOk=false;
 
-    //if (_enableSDLog) _sdBufferCom.init();
-
     if (_varList.num < MAXNUMVARS) {
 
         allOk = _registerVarAtPosition(_varList.num, name, ptrValue, minPeriod, threshold, maxPeriod);
@@ -489,8 +487,7 @@ bool Esp32MAClientSend::_sendBufferedMessages(){
         _lastBufferMillis = _nowMillis;
     }
 
-    // TODO: Check if it works correct always.
-    // To avoid Watch dog problems, if the task is running in core 0, delay it 1ms
+    // To avoid Watch dog problems, if the task is running in core 0 delay it 1ms
     if (xPortGetCoreID() == 0) vTaskDelay(1);
 
     return(sendOK);
@@ -653,8 +650,6 @@ void Esp32MAClientSend::_getFromApi(const String endPointRequest, const String X
         _setError("HTTP request NOT successful. Code = " + String(httpCode));
         _receivedPayload="";
     }
-
-    //TODO: Manage answer --> http.collectHeaders();
 
     http.end(); // Free up connection
 }

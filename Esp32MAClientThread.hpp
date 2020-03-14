@@ -65,11 +65,10 @@ typedef struct varStamp_t {
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 
-// TODO: Build a class to manage SD Buffer.
+// Class to manage SD Buffer.
 // It is a FIFO buffer written in a file. 
 // Pop is done positioning a pointer with seek, and reading 
 // Push is done appending in the file.
-// When de file gets too big, the older part is removed to make space.
 
 
 class SDBuffer {
@@ -315,14 +314,8 @@ class Esp32MAClientSend {
 
         unsigned long* _ptrTs;
 
-             
-
 
 };
-
-
-
-
 
 
 
