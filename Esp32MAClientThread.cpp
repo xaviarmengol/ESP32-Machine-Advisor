@@ -238,6 +238,9 @@ bool Esp32MAClientLog::_pushVarToBufferHardware(varStamp_t* ptrVarStamp) {
     if (!logToSD || !allOKLogSD) {
         
         allOKBuffer = (xQueueSendToBack(_xBufferCom, ptrVarStamp, 0) == pdPASS);
+        if (uxQueueMessagesWaiting(_xBufferCom)>=2) {
+            _setError("Buffering to RAM. " + getBufferInfo());
+        }
 
         // In case of buffer error (overload) and SD enabled, create a new file and log to SD.
 
@@ -814,7 +817,7 @@ bool SDBuffer::pop(varStamp_t* ptrVarStamp, bool onlyPeek){
 
             String lineStr = file.readStringUntil('\n');
 
-            Serial.println("Message POP: " + lineStr);
+            Serial.println("Pop from SD: " + lineStr);
 
             if (!onlyPeek)  {
                 _currentPointer = file.position();
@@ -849,7 +852,7 @@ bool SDBuffer::push(varStamp_t* ptrVarStamp){
 
     String lineStr = String(ptrVarStamp->varName) + ',' + String(ptrVarStamp->value) + ',' + String(ptrVarStamp->ts) + '\n';
 
-    Serial.println("Message PUSH: " + lineStr);
+    Serial.println("Push to SD: " + lineStr);
     
     allOK = _writeAppendFile(SD, _fileName.c_str(), lineStr.c_str(), FILE_APPEND);
 

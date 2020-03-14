@@ -3,8 +3,9 @@
 // How to declare the objects Esp32MAClientLog and Esp32MAClientSend
 // How to use the option of a SD card, to extend the buffer up to the SD capacity
 // How to create a specific task for Esp32MAClientSent and execute it in a separated core (0)
-// How to connect to Machine Advisor
 // How to register diferent variables with diferent options
+// How to start loging even if there is no conection
+// How to connect to Machine Advisor
 // How to dowload data from Machine Advisor
 // How to update the Log task in the main loop
 // How to update de Sending task in a specific task
@@ -55,20 +56,7 @@ void setup() {
 
     Serial.begin(115200);
     Serial.println("Initializing...");
-    InitWifi();
-    iniNTP();
-
-    // Machne Advisor connection credetials for "Machine"
-
-    machineSend.setConnexionString(MACHINEBROKERURL, MACHINECLIENTID, MACHINEPASSWORD);
-    while (!machineSend.connect()) Serial.print("C");
     
-    // ClientSend will be declared in a independent task pinned to the second core (0). 
-    // (Loop is always pinned to core (1))
-
-    xTaskCreateUniversal(tskUploading, "TaskUpload", 10000, NULL, 1, &handTskUploading, 0);
-    delay(500); 
-
     // Example 1:
     // Register a variable with a sampling time of 20s
 
@@ -87,18 +75,12 @@ void setup() {
 
     machineLog.registerVar("voltage", &volt, 5000, 20, 30000);
 
-    // Example 4:
-    // Print some machine data stored in MA
 
-    machineSend.setMASessionCookie(COOKIEKEY);
-    
-    // Display the last 5 minutes of variable humitity. Use makeTS method to set a concrete date/time
+    // All code related to the conection to Machine Advisor is executed in core 0.
+    // (Standard loop is always pinned to core 1)
 
-    unsigned long tsIni = timeClient.getEpochTime()-60*5;
-    unsigned long tsEnd = timeClient.getEpochTime();
-
-    machineSend.downloadCsv("ESP32", "humidity", tsIni, tsEnd);
-    machineSend.printCsv();
+    xTaskCreateUniversal(tskUploading, "TaskUpload", 10000, NULL, 1, &handTskUploading, 0);
+    delay(500); 
 
     // Aplication inits
 
@@ -132,7 +114,36 @@ void loop (){
 
 void tskUploading (void *pvParameters){
 
+    // SETUP or the task
+
     Serial.println("Task: Uploading to MA running on core " + String(xPortGetCoreID()));
+
+    // Conection to Network
+
+    InitWifi();
+    iniNTP();
+
+    // Machne Advisor connection credetials for "Machine"
+
+    machineSend.setConnexionString(MACHINEBROKERURL, MACHINECLIENTID, MACHINEPASSWORD);
+    while (!machineSend.connect()) Serial.print("C");
+
+
+    // Example Getting data:
+    // Print some machine data stored in MA
+
+    machineSend.setMASessionCookie(COOKIEKEY);
+    
+    // Display the last 5 minutes of variable humitity. Use makeTS method to set a concrete date/time
+
+    unsigned long tsIni = timeClient.getEpochTime()-60*5;
+    unsigned long tsEnd = timeClient.getEpochTime();
+
+    machineSend.downloadCsv("ESP32", "humidity", tsIni, tsEnd);
+    machineSend.printCsv();
+
+
+    // LOOP of the task
 
     while (true) {
         machineSend.update(isWifiOK());
@@ -166,11 +177,20 @@ bool iniNTP(){
 static void InitWifi() {
     Serial.println(" > WiFi");
     Serial.println("Connecting...");
+
     WiFi.begin(ssid, password);
+    int retryNum=0;
+
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
+        if (retryNum==10) {
+            WiFi.begin(ssid, password);
+            retryNum=0;
+        }
+        retryNum++;
     }
+
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());

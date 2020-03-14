@@ -19,7 +19,7 @@
 // Library defines
 
 #define MAXNUMVARS 32 // Max num of variables to log
-#define MAXBUFFER 64 // Max size of the ram buffer
+#define MAXBUFFER 5 // Max size of the ram buffer
 #define MILLISSENDPERIOD 1000 // Minimum period between messages to Machine Advisor
 #define COMRECOVERYDELAY 1000 // Timeout after recovering Wifi/communications
 #define MAXCHARVARNAME 15 // Maximum chars of the var name
