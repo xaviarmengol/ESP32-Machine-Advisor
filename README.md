@@ -1,4 +1,4 @@
-# ESP32-MA-Multitask
+# ESP32 Machine Advisor
 Arduino ESP32 Client for Machine Advisor, the Digital Service for machines by Schneider Electric
 
 The library provides a simple integration to Machine Advisor from Arduino environment using a ESP32 SoC. It has a powerful and simple logging system, with a configurable communications buffer and with the option to execute it in a separated task and in a dedicated core.
