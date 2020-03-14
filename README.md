@@ -54,13 +54,14 @@ In the example, three strings should be provided:
 
 ### TODO List
 
-- [ ] Add logging system to SD to make the off-line buffer much bigger
-- [ ] Add deep-sleep/wake-up to reduce battery consumption
+- [x] Add logging system to SD to make the off-line buffer much bigger
 - [ ] Document the class methods using std documentation system
 - [ ] Create a Platformio Library
-- [ ] Be able to download the data in JSON
-- [ ] Create a GraphQL connector
 - [ ] Add basic filtering to the signals (Use external library)
+- [ ] Be able to download the data in JSON
+- [ ] Add deep-sleep/wake-up to reduce battery consumption
+- [ ] Create a GraphQL connector
+
 
 
 ## Author
