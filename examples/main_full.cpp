@@ -15,8 +15,8 @@
 #include <WiFi.h>
 #include <NTPClient.h>
 
-#include "Esp32MAClientThread.hpp"
-#include "secrets/secrets.h"
+#include "Esp32MAClient.hpp"
+#include "secrets/secrets.h" // Replace with your credentials
 
 bool iniNTP();
 static void InitWifi();
