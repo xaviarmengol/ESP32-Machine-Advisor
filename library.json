@@ -1,7 +1,7 @@
 {
-  "name":"ESP32 Machine Advisor",
-  "description":"Machine Advisor client, and edge data logger, for ESP32",
-  "keywords":"machine,advisor,esp32,logger",
+  "name": "ESP32 Machine Advisor",
+  "description": "Machine Advisor client, and edge data logger, for ESP32",
+  "keywords": "machine,advisor,esp32,logger",
   "repository":
   {
     "type": "git",
