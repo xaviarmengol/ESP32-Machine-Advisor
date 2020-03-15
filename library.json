@@ -1,6 +1,6 @@
 {
   "name":"ESP32 Machine Advisor",
-  "description":"Machine Advisor client, and local data logger, for ESP32",
+  "description":"Machine Advisor client, and edge data logger, for ESP32",
   "keywords":"machine,advisor,esp32,logger",
   "authors":
   {
