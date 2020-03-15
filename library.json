@@ -2,17 +2,10 @@
   "name":"ESP32 Machine Advisor",
   "description":"Machine Advisor client, and edge data logger, for ESP32",
   "keywords":"machine,advisor,esp32,logger",
-  "authors":
-  {
-    "name": "Xavi Armengol"
-  },
   "repository":
   {
     "type": "git",
     "url": "https://github.com/xaviarmengol/ESP32-Machine-Advisor.git"
   },
-  "version": "0.1",
-  "license": "MIT",
-  "frameworks": "arduino",
-  "platforms":  "espressif32"
+  "version": "0.1"
 }
