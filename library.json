@@ -4,8 +4,7 @@
   "keywords":"machine,advisor,esp32,logger",
   "authors":
   {
-    "name": "Xavi Armengol",
-    "maintainer": true
+    "name": "Xavi Armengol"
   },
   "repository":
   {
@@ -15,10 +14,5 @@
   "version": "0.1",
   "license": "MIT",
   "frameworks": "arduino",
-  "platforms":  "espressif32",
-  "dependencies": 
-    {
-      "name": "ESP32 Azure IoT Arduino",
-      "platforms": "espressif32"
-    }
+  "platforms":  "espressif32"
 }
