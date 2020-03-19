@@ -4,6 +4,12 @@
 // How to configure: -log a variable and -connect to Machine advisors
 // How to upate the two objects in the loop
 
+// If using M5Stack, uncomment this 
+#define USE_M5STACK
+
+#ifdef USE_M5STACK
+    #include <M5Stack.h>
+#endif
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -28,9 +34,8 @@ NTPClient timeClient(ntpUDP);
 
 // Machine Advisor
 
-Esp32MAClientLog machineLog; // Log variables to a buffer
+Esp32MAClientLog machineLog(ESP32MALOG_SD); // Log variables to a buffer
 Esp32MAClientSend machineSend("ESP32", machineLog); // Send the buffer to Machine Advisor
-
 
 // Aplication variables example
 
@@ -38,7 +43,6 @@ int temp=20;
 int humid=10;
 int volt=5;
 unsigned long lastUpdate=0;
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -50,13 +54,14 @@ void setup() {
     #ifdef USE_M5STACK
         M5.begin();
     #endif
-
+   
     InitWifi();
     iniNTP();
 
     // Machne Advisor connection credetials for "Machine"
 
     machineSend.setConnexionString(MACHINEBROKERURL, MACHINECLIENTID, MACHINEPASSWORD);
+
     while (!machineSend.connect()) Serial.print("C");
 
     // Register a variable with a sampling time of 10s
@@ -87,7 +92,12 @@ void loop (){
 
     machineLog.update(timeClient.getEpochTime());
     machineSend.update(isWifiOK());
-   
+
+    #ifdef USE_M5STACK
+        if(M5.BtnA.wasPressed()) M5.powerOFF();
+        M5.update();
+    #endif
+    
 }
 
 
@@ -125,7 +135,6 @@ static void InitWifi() {
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
 }
-
 
 static bool isWifiOK(){
     return (WiFi.status() == WL_CONNECTED);

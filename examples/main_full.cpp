@@ -70,7 +70,7 @@ void setup() {
 
     // Example 3:
     // Register a variable with a minimum sample time of 5s
-    // but sample it only if the variable change is more than 2 units
+    // but sample it only if the variable change is more than 20 units
     // If the variable hasn't changed enough for 30s, sample it anyway
 
     machineLog.registerVar("voltage", &volt, 5000, 20, 30000);
