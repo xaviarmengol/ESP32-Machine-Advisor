@@ -2,16 +2,11 @@
 #define ESP32MALOG_HPP
 
 #include <Arduino.h>
-#include <WiFi.h>
-#include <HTTPClient.h> // Needed for the MA APIs
-#include <AzureIotHub.h> // Needed to send to MQTT to MA
-//#include <ArduinoJson.h> // Needed to manage JSON
-//TODO: convert API responses to JSON
+#include "dataStructure.h" // Structure to share information between log and client
 
-#include "dataStructure.h"
-#include "SDBuffer.hpp"
-#include "Esp32MQTTClient.h"
-#include "DebugMgr.hpp"
+#include "SDBuffer.hpp" // Fash memory buffer class (optional use)
+#include "DebugMgr.hpp" // Debug class
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -35,18 +30,14 @@ class Esp32MAClientLog {
 
         void update(unsigned long ts);
 
-        // Error management
-
-//        void resetError();
-//        int getNumErrors();
+        // Information about RAM buffer
 
         String getBufferInfo();
 
-        // Internal methods
+        // Internal methods that can be accessed from other classes
 
         QueueHandle_t* _getPtrBuffer();
         unsigned long* _getTsPtr();
-
 
     private:
 
@@ -57,7 +48,7 @@ class Esp32MAClientLog {
         unsigned long _nowMillis;
         bool _coldStart=true;
 
-        bool _logInitialized=false; // If log has been initializedvvvv
+        bool _logInitialized=false; // If log class has been initialized
 
         // Structure to register variables
 
@@ -75,34 +66,22 @@ class Esp32MAClientLog {
 
         DebugMgr _debug;
 
-//        void _setError(String errorText = "> Error with no text");
-//        void _setMsg(String msgText = "> Msg with no text");
-
-//        String _lastErrorText="";
-//        unsigned long _lastErrorMillis=0;
-
-        
-//        bool _globalError=false;
-//        long int _numErrors=0;
-
         unsigned long _lastTs;
 
-        // Buffer management
+        // RAM Buffer management (thread safe)
 
-        QueueHandle_t _xBufferCom; // Intertask communication buffer. Initialitzacion in the constructor
+        QueueHandle_t _xBufferCom; // Intertask communication buffer
+
         bool _pushVarToBuffer(int varId, unsigned long ts);
         bool _pushVarToBufferHardware(varStamp_t* ptrVarStamp);
         void _fillVarFromIdTs(varStamp_t *ptrVar, int varId, unsigned long ts);
 
-
         int _varsNotBufferedAndLost = 0;
-
         unsigned long _lastBufferErrorMillis=0;
 
         // SD Buffer management
 
         SDBuffer _sdBufferCom;
-
         void _updateSDBuffer();
  
 };

@@ -1,9 +1,22 @@
 #ifndef ESP32MACLIENT_HPP
 #define ESP32MACLIENT_HPP
 
-#include "Esp32MALog.hpp"
-#include "dataStructure.h"
-#include "DebugMgr.hpp"
+#define MILLISSENDPERIOD 1000 // Minimum period between messages to Machine Advisor
+#define COMRECOVERYDELAY 1000 // Timeout after recovering Wifi/communications
+#define ENDPOINTAPI "https://api.machine-advisor.schneider-electric.com/download/{{clientidnum}}/%5B%22{{device}}%3A{{varname}}%22%5D/{{tsini}}/{{tsend}}"
+
+
+#include <Arduino.h>
+#include <WiFi.h> // Needed to conect using Wifi
+#include <Esp32MQTTClient.h> // Needed to send to MQTT to MA
+#include <HTTPClient.h> // Needed for the MA APIs
+
+//#include <ArduinoJson.h> // Needed to manage JSON
+//TODO: convert API responses to JSON
+
+#include "Esp32MALog.hpp" // Log class
+
+#include "DebugMgr.hpp"  // Debug class
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -16,7 +29,7 @@ class Esp32MAClientSend {
 
         // Constructor
 
-        Esp32MAClientSend(String assetName, Esp32MAClientLog &logClient); // Easy
+        Esp32MAClientSend(String assetName, Esp32MAClientLog &logClient); // Easy constructor. Takes log object as parameter
         Esp32MAClientSend(String assetName, QueueHandle_t* ptrxBufferCom, unsigned long* ptrTs);
 
         // Conexion methods
