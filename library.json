@@ -1,7 +1,7 @@
 {
-  "name": "ESP32 MACHINE ADVISOR",
-  "keywords": "machine,advisor,esp32,logger",
-  "description": "Machine Advisor client, and edge data logger, for ESP32",
+  "name": "ESP32 Machine Advisor",
+  "keywords": "machine,advisor,esp32,logger,wifi,iot,iiot",
+  "description": "Machine Advisor client and edge data logger for ESP32",
   "repository":
   {
     "type": "git",
