@@ -6,7 +6,7 @@
 #include "DebugMgr.hpp"
 
 #define FILENAMESD "/sdbuffer.csv"
-#define SD_GPIO 4
+#define SD_GPIO 4 // Pin where the SD is attached
 
 // Libraries for SD card
 #include "FS.h"
