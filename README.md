@@ -55,6 +55,8 @@ In the example, three strings should be provided:
 ### TODO List
 
 - [x] Add logging system to SD to make the off-line buffer much bigger
+- [ ] Deal with Azure connection problems (try changing the password)
+- [ ] Modify the explanation to fit the new MA version
 - [ ] Document the class methods using std documentation system
 - [ ] Create a Platformio Library
 - [ ] Add basic filtering to the signals (Use external library)
