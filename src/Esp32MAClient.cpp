@@ -7,7 +7,7 @@ Esp32MAClientSend::Esp32MAClientSend(String assetName, QueueHandle_t* ptrxBuffer
     _assetName = assetName;
     _ptrxBufferCom = ptrxBufferCom;
     _ptrTs = ptrTs;
-    _debug.setLibName("Client");
+    debug.setLibName("Client");
 }
 
 
@@ -20,7 +20,7 @@ Esp32MAClientSend::Esp32MAClientSend(String assetName, Esp32MAClientLog &logClie
     _assetName = assetName;
     _ptrxBufferCom = logClient._getPtrBuffer();
     _ptrTs = logClient._getTsPtr();
-    _debug.setLibName("Client");
+    debug.setLibName("Client");
     
 }
 
@@ -94,12 +94,12 @@ bool Esp32MAClientSend::connect() {
 
     bool allOK;
 
-    _debug.setMsg("Starting connexion to Machine Advisor");
+    debug.setMsg("Starting connexion to Machine Advisor");
 
     allOK = Esp32MQTTClient_Init((const uint8_t*)_connexionString.c_str());
     Esp32MQTTClient_SetSendConfirmationCallback(_SendConfirmationCallback);
 
-    if (!allOK) _debug.setError("Problem connecting to Machine Advisor. Check connection credentials");
+    if (!allOK) debug.setError("Problem connecting to Machine Advisor. Check connection credentials");
     return(allOK);
 
 }
@@ -154,11 +154,11 @@ bool Esp32MAClientSend::_sendBufferedMessages(){
                 _messageOKCount = (_messageOKCount + 1) % INTMAX_MAX;
 
                 if (bufferWithValue && uxQueueMessagesWaiting(*_ptrxBufferCom) !=0) {
-                    _debug.setMsg("Last message was buffered=" + getBufferInfo(), _lastTs);
+                    debug.setMsg("Last message was buffered=" + getBufferInfo(), _lastTs);
                 }
 
             } else {
-                _debug.setError("Sending the message to MA. Check connection status. Buffer=" + getBufferInfo(), _lastTs);
+                debug.setError("Sending the message to MA. Check connection status. Buffer=" + getBufferInfo(), _lastTs);
                 _messageErrorCount = (_messageErrorCount +1) % INTMAX_MAX;
             }
         }
@@ -234,7 +234,7 @@ bool Esp32MAClientSend::sendMQTTMessage(String mqttMessage, bool isComOK) {
         isMessageSent = Esp32MQTTClient_SendEventInstance(message);
 
 
-        if (isMessageSent) _debug.setMsg("Message sent =" + mqttMessage);
+        if (isMessageSent) debug.setMsg("Message sent =" + mqttMessage);
 
     } 
 
@@ -293,18 +293,18 @@ void Esp32MAClientSend::_getFromApi(const String endPointRequest, const String X
 
     // Make Request
 
-    _debug.setMsg("Getting values from Machine Advisor API", _lastTs);
+    debug.setMsg("Getting values from Machine Advisor API", _lastTs);
 
     int httpCode = http.GET();  
 
     if (httpCode >= 200 && httpCode<=299) { 
 
-        _debug.setMsg(String(http.getSize()), _lastTs);
+        debug.setMsg(String(http.getSize()), _lastTs);
         _receivedPayload = http.getString(); 
         // TODO: move to ---> http.getStream or pointer
 
     } else {
-        _debug.setError("HTTP request NOT successful. Code = " + String(httpCode), _lastTs);
+        debug.setError("HTTP request NOT successful. Code = " + String(httpCode), _lastTs);
         _receivedPayload="";
     }
 
@@ -331,14 +331,14 @@ void Esp32MAClientSend::printCsv() {
             String msg = lineStr.substring(0,coma1);
             msg += " | " + lineStr.substring(coma1+1,coma2);
             msg += " | " + lineStr.substring(coma2+1,size) + String("\n");
-            _debug.setMsg(msg, _lastTs);
+            debug.setMsg(msg, _lastTs);
 
             iniSub = indexEndCol+1;
             indexEndCol = _receivedPayload.indexOf("\n", iniSub);
 
             if (iniSub == -1 || indexEndCol == -1) break;
         }
-    } else _debug.setError("No payload to parse and print. Check if it has been received from Machine Advisor", _lastTs);
+    } else debug.setError("No payload to parse and print. Check if it has been received from Machine Advisor", _lastTs);
 
 }
 

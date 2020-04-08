@@ -12,10 +12,10 @@ Esp32MAClientLog::Esp32MAClientLog(bool enableSDLog){
     _xBufferCom = xQueueCreate( MAXBUFFER, sizeof(varStamp_t));
 
     if(_xBufferCom == NULL){
-        _debug.setError("Creating memory thread safe buffer. Check memory allocation.");
+        debug.setError("Creating memory thread safe buffer. Check memory allocation.");
     }
 
-    _debug.setLibName("Log");
+    debug.setLibName("Log");
 
 }
 
@@ -37,12 +37,12 @@ int Esp32MAClientLog::registerVar(String name, int *ptrValue, int minPeriod, int
 
         if (_enableSDLog ) {
             if (!_sdBufferCom.init()) {
-                _debug.setError("Problem mounting the SD. Check SD Card.", _lastTs);
-            } else _debug.setMsg("SD Initalized", _lastTs);
+                debug.setError("Problem mounting the SD. Check SD Card.", _lastTs);
+            } else debug.setMsg("SD Initalized", _lastTs);
             
             if (!_sdBufferCom.setFileName(FILENAMESD)) {
-                _debug.setError("Problem intializing SD file for buffer. Check SD card.", _lastTs);
-            } else _debug.setMsg("Buffer file created", _lastTs);
+                debug.setError("Problem intializing SD file for buffer. Check SD card.", _lastTs);
+            } else debug.setMsg("Buffer file created", _lastTs);
         }
 
         _logInitialized = true;
@@ -57,13 +57,13 @@ int Esp32MAClientLog::registerVar(String name, int *ptrValue, int minPeriod, int
         if (allOk) {
             varId = _varList.num;
             _varList.num ++;
-            _debug.setMsg("Variable registered: " + name, _lastTs);
+            debug.setMsg("Variable registered: " + name, _lastTs);
         }
 
     } else {
 
         varId = -1;
-        _debug.setError("No more space for new variables. Increase the pre-allocated memory.", _lastTs);
+        debug.setError("No more space for new variables. Increase the pre-allocated memory.", _lastTs);
     }
 
     return (varId);
@@ -90,7 +90,7 @@ bool Esp32MAClientLog::_registerVarAtPosition(int varID, String name, int *ptrVa
         return(true);
 
     } else {
-        _debug.setError("Only can be updated a variable already registered. Register it first.", _lastTs);
+        debug.setError("Only can be updated a variable already registered. Register it first.", _lastTs);
         return(false);
     }  
 }
@@ -118,7 +118,7 @@ int Esp32MAClientLog::_findVarIndex (int *ptrValue){
             return(i);
         }
     }
-    _debug.setError("Variable not found", _lastTs);
+    debug.setError("Variable not found", _lastTs);
     return (-1);
 }
 
@@ -132,7 +132,6 @@ void Esp32MAClientLog::update(unsigned long ts){
     _lastTs = ts;
     _nowMillis = millis();
     
-
     for (int varId=0; varId<_varList.num; varId++){
 
         // Try to move data from SD to memory buffer
@@ -162,7 +161,7 @@ void Esp32MAClientLog::_updateSDBuffer(){
             if(_sdBufferCom.pop(&varStamp)) {
                 xQueueSendToBack(_xBufferCom, &varStamp, 0);
             } else {
-                _debug.setError("Problem moving data from SD buffer to memory buffer. Check SD.", _lastTs);
+                debug.setError("Problem moving data from SD buffer to memory buffer. Check SD.", _lastTs);
             }
         }
     }
@@ -217,7 +216,7 @@ bool Esp32MAClientLog::_pushVarToBuffer(int varId, unsigned long ts) {
         errorMsg = "Problem pushing a var to the buffer. Buffer=" + getBufferInfo() + String("\n");
         errorMsg += "Value Lost: " + String(varStamp.varName) + " " + String(varStamp.value) + " " + String(varStamp.ts) + String("\n");
         errorMsg += "Messages Lost: " + String(_varsNotBufferedAndLost) + String("");
-        _debug.setError(errorMsg, _lastTs);
+        debug.setError(errorMsg, _lastTs);
 
     } 
 
@@ -240,7 +239,7 @@ bool Esp32MAClientLog::_pushVarToBufferHardware(varStamp_t* ptrVarStamp) {
     if (logToSD) {
 
         allOKLogSD = _sdBufferCom.push(ptrVarStamp);
-        if (!allOKLogSD) _debug.setError("Problem pushing a value to a SD Buffer. Check SD.", _lastTs);
+        if (!allOKLogSD) debug.setError("Problem pushing a value to a SD Buffer. Check SD.", _lastTs);
 
     } 
 
@@ -249,7 +248,7 @@ bool Esp32MAClientLog::_pushVarToBufferHardware(varStamp_t* ptrVarStamp) {
         
         allOKBuffer = (xQueueSendToBack(_xBufferCom, ptrVarStamp, 0) == pdPASS);
         if (uxQueueMessagesWaiting(_xBufferCom)>=2) {
-            _debug.setError("Buffering to RAM. " + getBufferInfo(), _lastTs);
+            debug.setMsg("RAM buffer is getting bigger " + getBufferInfo(), _lastTs);
         }
 
         // In case of buffer error (overload) and SD enabled, create a new file and log to SD.
@@ -258,7 +257,7 @@ bool Esp32MAClientLog::_pushVarToBufferHardware(varStamp_t* ptrVarStamp) {
 
             _sdBufferCom.createFile(FILENAMESD);
             allOKNewFileSD = _sdBufferCom.push(ptrVarStamp);
-            if (!allOKNewFileSD) _debug.setError ("Problem pushing value to a new SD file. Check SD.", _lastTs);
+            if (!allOKNewFileSD) debug.setError ("Problem pushing value to a new SD file. Check SD.", _lastTs);
         }
 
     }

@@ -39,6 +39,10 @@ class Esp32MAClientLog {
         QueueHandle_t* _getPtrBuffer();
         unsigned long* _getTsPtr();
 
+        // Error management
+
+        DebugMgr debug;
+
     private:
 
         // Constructor
@@ -62,9 +66,7 @@ class Esp32MAClientLog {
 
         unsigned long _lastMinPeriodsMillis=0;
 
-        // Error management
 
-        DebugMgr _debug;
 
         unsigned long _lastTs;
 

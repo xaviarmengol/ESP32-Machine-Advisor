@@ -60,7 +60,7 @@ class SDBuffer {
 
         // Error mgm
 
-        DebugMgr debug;
+        DebugMgr _debug;
 
 };
 

@@ -10,11 +10,12 @@ bool SDBuffer::init(){
 
         // If we use M5Stack, the SD initialitzation is done in M5 intit.
         #ifndef USE_M5STACK
-            if(!SD.begin(SD_GPIO)) _debug._setError("Card Mount Failed");
+            if(!SD.begin(SD_GPIO)) _debug.setError("Card Mount Failed");
+
 
             else {
                 uint8_t cardType = SD.cardType();
-                if (cardType == CARD_NONE) _debug._setError("No SD card attached");    
+                if (cardType == CARD_NONE) _debug.setError("No SD card attached");    
                 else _SDinit = true;
             }
         #endif
@@ -23,7 +24,7 @@ bool SDBuffer::init(){
             _SDinit = true;
         #endif
 
-        debug.setLibName("SDBuff");
+        _debug.setLibName("SDBuff");
     }
 
     return(_SDinit);
@@ -50,7 +51,7 @@ bool SDBuffer::createFile(String fileName) {
     bool allOK=false;
 
     String dataMessage = "VarName,Value,TimeStamp\n";
-    debug.setMsg("Save data: " + dataMessage);
+    _debug.setMsg("Save data: " + dataMessage);
 
     allOK = _writeAppendFile(SD, fileName.c_str(), dataMessage.c_str(), FILE_WRITE);
 
@@ -82,7 +83,7 @@ bool SDBuffer::pop(varStamp_t* ptrVarStamp, bool onlyPeek){
 
         if(!file) {
 
-            debug.setError("Failed to open file for writing");
+            _debug.setError("Failed to open file for writing");
             allOK = false;
 
         } else {
@@ -91,7 +92,7 @@ bool SDBuffer::pop(varStamp_t* ptrVarStamp, bool onlyPeek){
 
             String lineStr = file.readStringUntil('\n');
 
-            debug.setMsg("Pop from SD: " + lineStr);
+            _debug.setMsg("Pop from SD: " + lineStr);
 
             if (!onlyPeek)  {
                 _currentPointer = file.position();
@@ -126,7 +127,7 @@ bool SDBuffer::push(varStamp_t* ptrVarStamp){
 
     String lineStr = String(ptrVarStamp->varName) + ',' + String(ptrVarStamp->value) + ',' + String(ptrVarStamp->ts) + '\n';
 
-    debug.setMsg("Push to SD: " + lineStr);
+    _debug.setMsg("Push to SD: " + lineStr);
     
     allOK = _writeAppendFile(SD, _fileName.c_str(), lineStr.c_str(), FILE_APPEND);
 
@@ -154,7 +155,7 @@ bool SDBuffer::_writeAppendFile(fs::FS &fs, const char * path, const char * mess
 
     if (!file) allOK=false;
     else if (!file.print(message)) { 
-        debug.setError("Failed to open or appending");
+        _debug.setError("Failed to open or appending");
     } else allOK=true;
 
     file.close();

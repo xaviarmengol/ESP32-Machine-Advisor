@@ -69,6 +69,11 @@ class Esp32MAClientSend {
 
         static unsigned long makeTS(int year, byte month, byte day, byte hour, byte min, byte seg);
 
+        // Error management
+
+        DebugMgr debug;
+        int getMsgSentOK () {return (_messageOKCount);};
+
     private:
 
         String _assetName; // Asset name (constructor)
@@ -103,9 +108,7 @@ class Esp32MAClientSend {
         String _createMQTTMessage();
         String _createMQTTMessageVar(String name, int value, unsigned long ts);
 
-        // Error management
 
-        DebugMgr _debug;
 
         unsigned long _lastTs;
 

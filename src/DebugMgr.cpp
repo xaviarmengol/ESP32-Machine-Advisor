@@ -22,6 +22,8 @@ void DebugMgr::setError(String textError, unsigned long ts){
     #ifdef USE_M5STACK
     M5.Lcd.println(errorMsg);
     #endif
+
+    _lastMsg = errorMsg;
 }
 
 void DebugMgr::resetError(){
@@ -46,6 +48,8 @@ void DebugMgr::setMsg(String msgText, unsigned long ts) {
     M5.Lcd.println(msg);
     #endif
 
+    _lastMsg = msg;
+
 }
 
 String DebugMgr::_getHumanDate(unsigned long timeStamp) {
@@ -59,4 +63,8 @@ String DebugMgr::_getHumanDate(unsigned long timeStamp) {
     strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S", &ts);
     //printf("%s\n", buf);
     return(String(buf));
+}
+
+String DebugMgr::getLastMessage() {
+    return(_lastMsg);
 }

@@ -5,7 +5,7 @@
 
 
 // If using M5Stack, uncomment this 
-#define USE_M5STACK
+//#define USE_M5STACK
 
 #ifdef USE_M5STACK
 #include <M5Stack.h>
@@ -25,8 +25,8 @@ class DebugMgr {
 
         void resetError();
         int getNumErrors();
-        String getBufferInfo();
 
+        String getLastMessage();
 
     private:
 
@@ -39,6 +39,8 @@ class DebugMgr {
         long int _numErrors=0;
 
         String _getHumanDate(unsigned long timeStamp);
+
+        String _lastMsg;
 };
 
 #endif
